@@ -22,13 +22,11 @@ print(f"✅ Archivo encontrado: {filename}")
 # Leer Excel
 df = pd.read_excel(filename)
 print(f"📊 Registros encontrados: {len(df)}")
-print("📋 Columnas detectadas:")
-for col in df.columns:
-    print(f"   - {col}")
 
-# Limpiar datos - convertir todo a string
+# Limpiar datos - convertir todo a string y eliminar espacios sobrantes en cabeceras
+df.columns = [str(col).strip() for col in df.columns]
 for col in df.columns:
-    df[col] = df[col].fillna('').astype(str)
+    df[col] = df[col].fillna('').astype(str).str.strip()
 
 # Convertir a lista de diccionarios
 data = df.to_dict('records')
@@ -43,7 +41,7 @@ output = {
 # Convertir a JSON string
 json_data = json.dumps(output, ensure_ascii=False)
 
-# Plantilla HTML con tu código exacto
+# Plantilla HTML optimizada
 html_template = '''<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -73,9 +71,10 @@ html_template = '''<!DOCTYPE html>
             font-size: 0.95rem; 
             cursor: pointer; 
             font-weight: 600;
-            transition: all 0.3s;
+            transition: all 0.2s;
+            user-select: none;
         }
-        .btn:active { transform: scale(0.95); }
+        .btn:active { transform: scale(0.97); }
         .btn-route { 
             background: #667eea; 
             color: white; 
@@ -83,11 +82,12 @@ html_template = '''<!DOCTYPE html>
             margin-bottom: 10px;
             padding: 15px;
             font-size: 1rem;
+            text-align: center;
         }
         .btn-route.active { 
             background: #764ba2; 
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-            transform: scale(1.02);
+            transform: scale(1.01);
         }
         
         .step-indicator {
@@ -149,16 +149,23 @@ html_template = '''<!DOCTYPE html>
         }
         .alert-section.show { display: block; }
         .alert-buttons { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        
+        /* Estructura Flexbox garantizada para el botón y clic completo */
         .alert-btn {
-            padding: 15px;
+            padding: 14px 20px;
             border: 3px solid #e0e0e0;
             border-radius: 10px;
-            text-align: center;
             cursor: pointer;
             font-weight: 600;
             font-size: 1rem;
-            transition: all 0.3s;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            user-select: none;
         }
+        .alert-btn * { pointer-events: none; } /* Permite que el clic funcione en cualquier punto del botón */
         .alert-btn:active { transform: scale(0.98); }
         .alert-btn.urge { background: #fff3cd; border-color: #ffc107; color: #856404; }
         .alert-btn.urge.active { background: #ffc107; color: white; }
@@ -167,6 +174,13 @@ html_template = '''<!DOCTYPE html>
         .alert-btn.sin-riesgo { background: #d4edda; border-color: #28a745; color: #155724; }
         .alert-btn.sin-riesgo.active { background: #28a745; color: white; }
         
+        .badge-count {
+            font-size: 1.3rem;
+            font-weight: 800;
+            min-width: 40px;
+            text-align: right;
+        }
+
         .pin-section {
             background: white;
             padding: 15px;
@@ -285,16 +299,6 @@ html_template = '''<!DOCTYPE html>
             color: #666;
             border-top: 1px solid #e0e0e0;
         }
-        
-        .debug-info {
-            background: #fff3cd;
-            padding: 10px;
-            margin: 10px;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            display: none;
-        }
-        .debug-info.show { display: block; }
     </style>
 </head>
 <body>
@@ -327,29 +331,39 @@ html_template = '''<!DOCTYPE html>
         <div class="section-title">⚠️ PASO 2: ¿Qué tipo de PDV necesitas ver?</div>
         <div class="alert-buttons">
             <div class="alert-btn urge" onclick="selectAlert('Alerta', this)">
-                ⚠️ ALERTA<br>
-                <small style="font-size: 0.8rem;">Urgente - Amarillo</small>
+                <div style="width: 40px;"></div>
+                <div style="text-align: center; flex: 1;">
+                    ⚠️ ALERTA<br>
+                    <small style="font-size: 0.8rem; font-weight: normal;">Urgente - Amarillo</small>
+                </div>
+                <div class="badge-count" id="count-alerta">0</div>
             </div>
             <div class="alert-btn desabastecido" onclick="selectAlert('Desabastecido', this)">
-                🚫 DESABASTECIDO<br>
-                <small style="font-size: 0.8rem;">Rojo - Crítico</small>
+                <div style="width: 40px;"></div>
+                <div style="text-align: center; flex: 1;">
+                    🚫 DESABASTECIDO<br>
+                    <small style="font-size: 0.8rem; font-weight: normal;">Rojo - Crítico</small>
+                </div>
+                <div class="badge-count" id="count-desabastecido">0</div>
             </div>
             <div class="alert-btn sin-riesgo" onclick="selectAlert('Sin Riesgo', this)">
-                ✅ SIN RIESGO<br>
-                <small style="font-size: 0.8rem;">Verde - Estable</small>
+                <div style="width: 40px;"></div>
+                <div style="text-align: center; flex: 1;">
+                    ✅ SIN RIESGO<br>
+                    <small style="font-size: 0.8rem; font-weight: normal;">Verde - Estable</small>
+                </div>
+                <div class="badge-count" id="count-sinriesgo">0</div>
             </div>
         </div>
     </div>
 
     <div class="pin-section" id="pinSection">
-        <div class="section-title"> Opcional: Buscar PDV específico por PIN</div>
+        <div class="section-title">🔍 Opcional: Buscar PDV específico por PIN</div>
         <input type="text" class="pin-input" id="pinInput" placeholder="Ingresa los últimos 4 dígitos" maxlength="4" oninput="searchByPin(this.value)">
         <p style="margin-top: 10px; font-size: 0.85rem; color: #666; text-align: center;">
             Deja vacío para ver todos los PDVs de la selección
         </p>
     </div>
-
-    <div class="debug-info" id="debugInfo"></div>
 
     <div class="results-section" id="resultsSection">
         <div class="results-header">
@@ -371,9 +385,19 @@ html_template = '''<!DOCTYPE html>
         let selectedAlert = null;
         let filteredData = [];
 
-        console.log("Datos cargados:", allData.length, "registros");
-        console.log("Primer registro:", allData[0]);
-        console.log("Columnas disponibles:", Object.keys(allData[0]));
+        // Función para obtener valores de campos de forma flexible (tolera variaciones de nombres y espacios)
+        function getItemVal(item, keyNames) {
+            for (let k in item) {
+                let cleanK = k.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                for (let name of keyNames) {
+                    let cleanName = name.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    if (cleanK === cleanName) {
+                        return (item[k] || '').toString().trim();
+                    }
+                }
+            }
+            return '';
+        }
 
         document.addEventListener('DOMContentLoaded', function() {
             if (appData.last_update) {
@@ -383,16 +407,21 @@ html_template = '''<!DOCTYPE html>
         });
 
         function populateRoutes() {
-            const routes = [...new Set(allData.map(item => item.Ruta).filter(r => r && r !== ''))].sort();
-            const grid = document.getElementById('routesGrid');
+            const routesSet = new Set();
+            allData.forEach(item => {
+                const r = getItemVal(item, ['Ruta', 'Ruta PDV', 'RUTA']);
+                if (r) routesSet.add(r);
+            });
             
-            console.log("Rutas encontradas:", routes);
+            const routes = Array.from(routesSet).sort();
+            const grid = document.getElementById('routesGrid');
             
             if (routes.length === 0) {
                 grid.innerHTML = '<p style="color: #dc3545; text-align: center;">No se encontraron rutas en los datos</p>';
                 return;
             }
             
+            grid.innerHTML = '';
             routes.forEach(route => {
                 const btn = document.createElement('div');
                 btn.className = 'btn btn-route';
@@ -408,13 +437,31 @@ html_template = '''<!DOCTYPE html>
             document.querySelectorAll('.btn-route').forEach(b => b.classList.remove('active'));
             btnElement.classList.add('active');
             
+            let cAlerta = 0;
+            let cDesabastecido = 0;
+            let cSinRiesgo = 0;
+
+            const targetRoute = route.trim().toLowerCase();
+
+            allData.forEach(item => {
+                const itemRoute = getItemVal(item, ['Ruta', 'Ruta PDV', 'RUTA']).toLowerCase();
+                if (itemRoute === targetRoute) {
+                    const clas = getItemVal(item, ['Última Clasificación', 'Ultima Clasificacion', 'Clasificacion', 'Clasificación']).toLowerCase();
+                    if (clas.includes('alerta')) cAlerta++;
+                    else if (clas.includes('desabastecido')) cDesabastecido++;
+                    else if (clas.includes('sin riesgo') || clas.includes('sinriesgo')) cSinRiesgo++;
+                }
+            });
+
+            document.getElementById('count-alerta').textContent = cAlerta;
+            document.getElementById('count-desabastecido').textContent = cDesabastecido;
+            document.getElementById('count-sinriesgo').textContent = cSinRiesgo;
+
             document.getElementById('step1').classList.add('completed');
             document.getElementById('step2').classList.add('active');
             
             document.getElementById('alertSection').classList.add('show');
             document.getElementById('alertSection').scrollIntoView({ behavior: 'smooth' });
-            
-            console.log("Ruta seleccionada:", route);
         }
 
         function selectAlert(alertType, btnElement) {
@@ -431,18 +478,19 @@ html_template = '''<!DOCTYPE html>
             
             applyFilters();
             document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
-            
-            console.log("Alerta seleccionada:", alertType);
         }
 
         function applyFilters() {
             if (!selectedRoute || !selectedAlert) return;
             
+            const targetRoute = selectedRoute.trim().toLowerCase();
+            const targetAlert = selectedAlert.trim().toLowerCase();
+
             filteredData = allData.filter(item => {
-                const itemRoute = item.Ruta || '';
-                const itemClasificacion = item['Última Clasificación'] || '';
+                const itemRoute = getItemVal(item, ['Ruta', 'Ruta PDV', 'RUTA']).toLowerCase();
+                const itemClasificacion = getItemVal(item, ['Última Clasificación', 'Ultima Clasificacion', 'Clasificacion', 'Clasificación']).toLowerCase();
                 
-                return itemRoute === selectedRoute && itemClasificacion === selectedAlert;
+                return itemRoute === targetRoute && itemClasificacion.includes(targetAlert);
             });
             
             displayResults(filteredData);
@@ -460,7 +508,7 @@ html_template = '''<!DOCTYPE html>
             }
             
             const pinResults = filteredData.filter(item => {
-                const phone = String(item['Telefono PDV'] || '');
+                const phone = getItemVal(item, ['Telefono PDV', 'Telefono', 'TEL']);
                 return phone.endsWith(pin);
             });
             
@@ -489,16 +537,16 @@ html_template = '''<!DOCTYPE html>
             let html = '';
             data.forEach((item, index) => {
                 try {
-                    const classification = item['Última Clasificación'] || '';
+                    const classification = getItemVal(item, ['Última Clasificación', 'Ultima Clasificacion', 'Clasificacion', 'Clasificación']);
                     const classificationClass = getClassificationClass(classification);
-                    const balance = parseFloat(item['Saldo Actual']) || 0;
+                    const balance = parseFloat(getItemVal(item, ['Saldo Actual', 'Saldo'])) || 0;
                     const balanceClass = getBalanceClass(balance, classification);
-                    const promedio = parseFloat(item['Promedio Recarga Prox. 48h']) || 0;
-                    const abastecimiento = parseFloat(item['Abastecimiento Sugerido Prox. 48 Hrs.']) || 0;
-                    const phone = item['Telefono PDV'] || '';
+                    const promedio = parseFloat(getItemVal(item, ['Promedio Recarga Prox. 48h', 'Promedio'])) || 0;
+                    const abastecimiento = parseFloat(getItemVal(item, ['Abastecimiento Sugerido Prox. 48 Hrs.', 'Abastecimiento Sugerido'])) || 0;
+                    const phone = getItemVal(item, ['Telefono PDV', 'Telefono', 'TEL']);
                     const pin = phone.length >= 4 ? phone.slice(-4) : phone;
-                    const nombre = item['Nombre PDV'] || 'N/A';
-                    const ruta = item.Ruta || 'N/A';
+                    const nombre = getItemVal(item, ['Nombre PDV', 'Nombre', 'PDV']) || 'N/A';
+                    const ruta = getItemVal(item, ['Ruta', 'RUTA']) || 'N/A';
 
                     html += `
                         <div class="table-row">
@@ -541,17 +589,17 @@ html_template = '''<!DOCTYPE html>
         }
 
         function getClassificationClass(classification) {
-            switch(classification) {
-                case 'Alerta': return 'alerta';
-                case 'Desabastecido': return 'desabastecido';
-                case 'Sin Riesgo': return 'sin-riesgo';
-                default: return '';
-            }
+            const clas = classification.toLowerCase();
+            if (clas.includes('alerta')) return 'alerta';
+            if (clas.includes('desabastecido')) return 'desabastecido';
+            if (clas.includes('sin riesgo') || clas.includes('sinriesgo')) return 'sin-riesgo';
+            return '';
         }
 
         function getBalanceClass(balance, classification) {
-            if (classification === 'Desabastecido') return 'danger';
-            if (classification === 'Alerta') return 'warning';
+            const clas = classification.toLowerCase();
+            if (clas.includes('desabastecido')) return 'danger';
+            if (clas.includes('alerta')) return 'warning';
             if (balance < 5) return 'warning';
             return 'positive';
         }
